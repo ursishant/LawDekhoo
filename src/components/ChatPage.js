@@ -67,8 +67,8 @@ const ChatPage = () => {
 
   useEffect(() => {
     const initialMessages = [
-        { id: Date.now(), sender: "bot", text: "Hello! I'm Lawdekho AI. How may I assist you today?" },
-        { id: Date.now() + 1, sender: "system", text: "🔒 All conversations are private and confidential.", type: "notification" }
+        { id: `msg-${Date.now()}-${Math.random()}`, sender: "bot", text: "Hello! I'm Lawdekho AI. How may I assist you today?" },
+        { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: "🔒 All conversations are private and confidential.", type: "notification" }
     ];
     try {
       const storedHistory = localStorage.getItem("lawdekho_chat_history");
@@ -93,9 +93,9 @@ const ChatPage = () => {
     if (!trimmedText && !isSummaryRequest) return;
     setLoading(true); setInput("");
     if (!isSummaryRequest) {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "user", text: trimmedText }]);
+        setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "user", text: trimmedText }]);
     } else {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✨ Summarizing ${fileName}...`, type: "notification" }]);
+        setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `✨ Summarizing ${fileName}...`, type: "notification" }]);
     }
     let finalPrompt = `${LEGAL_ASSISTANT_PROMPT}\n\n---\nLanguage: ${supportedLanguages[selectedLanguage].name}.`;
     if (isSummaryRequest && fileContent) {
@@ -113,24 +113,24 @@ const ChatPage = () => {
         .replace(/### (.*?)(?:\n|$)/g, '<b>$1</b><br/>');
 
       const botMessage = { 
-          id: Date.now(), 
+          id: `msg-${Date.now()}-${Math.random()}`,
           sender: "bot", 
           text: isSummaryRequest ? `<b>Summary of ${fileName}:</b><br/><br/>` + formattedText : formattedText 
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      setMessages(prev => [...prev, { id: Date.now(), sender: "bot", text: `An error occurred: ${error.message}` }]);
+      setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "bot", text: `An error occurred: ${error.message}` }]);
     } finally {
       setLoading(false);
     }
   };
   const handleClearDocument = () => {
     setFileContent(null); setFileName("");
-    setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "Document context cleared.", type: "notification" }]);
+    setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: "Document context cleared.", type: "notification" }]);
   };
   const processPdfFile = async (file) => {
       if (!window.pdfjsLib || !window.Tesseract) { 
-          setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "⚠️ PDF processing libraries are not loaded. Please check your connection and refresh.", type: "notification" }]);
+          setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: "⚠️ PDF processing libraries are not loaded. Please check your connection and refresh.", type: "notification" }]);
           return;
       }
       setLoading(true); setProgress(0);
@@ -142,7 +142,7 @@ const ChatPage = () => {
               
               // --- NEW: Page limit check ---
               if (pdf.numPages > 120) {
-                  setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "⚠️ Your PDF exceeds the page limit of 120. Please upload a smaller one.", type: "notification" }]);
+                  setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: "⚠️ Your PDF exceeds the page limit of 120. Please upload a smaller one.", type: "notification" }]);
                   setLoading(false);
                   return;
               }
@@ -169,7 +169,7 @@ const ChatPage = () => {
                   }
               }
               setFileContent(fullText); setFileName(file.name); setProcessingStatus(""); setProgress(0);
-              setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✅ Processed ${file.name}. Ask a question about it.`, type: "notification" }]);
+              setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `✅ Processed ${file.name}. Ask a question about it.`, type: "notification" }]);
           } catch (error) {
               setProcessingStatus(`Error: ${error.message}`);
           } finally { setLoading(false); }
@@ -185,12 +185,12 @@ const ChatPage = () => {
             const reader = new FileReader();
             reader.onload = (event) => {
                 setFileContent(event.target.result); setFileName(file.name);
-                setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `📎 Loaded ${file.name}.`, type: "notification" }]);
+                setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `📎 Loaded ${file.name}.`, type: "notification" }]);
             };
             reader.readAsText(file);
         }
     } else {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `⚠️ Unsupported file type.`, type: "notification" }]);
+        setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `⚠️ Unsupported file type.`, type: "notification" }]);
     }
     e.target.value = null;
   };
@@ -201,9 +201,9 @@ const ChatPage = () => {
     try {
         const textContent = await fetchUrlContent(urlInput);
         setFileContent(textContent); setFileName(urlInput); setUrlInput("");
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✅ Fetched content.`, type: "notification" }]);
+        setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `✅ Fetched content.`, type: "notification" }]);
     } catch (error) {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `❌ Fetch failed: ${error.message}`, type: "notification" }]);
+        setMessages(prev => [...prev, { id: `msg-${Date.now()}-${Math.random()}`, sender: "system", text: `❌ Fetch failed: ${error.message}`, type: "notification" }]);
     } finally { setLoading(false); setProcessingStatus(""); }
   };
   const handleSubmit = (e) => { e.preventDefault(); sendMessage(input); };
