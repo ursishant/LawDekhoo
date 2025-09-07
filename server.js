@@ -27,6 +27,7 @@ app.disable('x-powered-by');
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
 app.use(limiter);
 app.use(express.json({ limit: '50mb' }));
+app.options('*', cors());
 
 // --- Simple JSON file DB ---
 const dbDir = path.join(__dirname, 'data');
@@ -192,7 +193,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // Update profile (name, phone, socials)
-app.put('/api/auth/profile', (req, res) => {
+const handleProfileUpdate = (req, res) => {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Missing token' });
@@ -209,7 +210,9 @@ app.put('/api/auth/profile', (req, res) => {
   writeUsers(data);
   const user = { id: data.users[idx].id, name: data.users[idx].name, email: data.users[idx].email, phone: data.users[idx].phone || '', socials: data.users[idx].socials || {} };
   res.json({ user });
-});
+};
+app.put('/api/auth/profile', handleProfileUpdate);
+app.post('/api/auth/profile', handleProfileUpdate);
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running securely on http://localhost:${PORT}`);
