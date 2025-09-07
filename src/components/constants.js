@@ -1,5 +1,24 @@
 /**
  * -----------------------------------------------------------------------------
+ * Constants
+ * -----------------------------------------------------------------------------
+ *
+ * This file contains shared constants used throughout the application.
+ *
+ */
+
+// --- Navigation Links ---
+export const navLinks = [
+    { path: "/", label: "Home" },
+    { path: "/chat", label: "AI Chat" },
+    { path: "/documents", label: "Documents" },
+    { path: "/legalaid", label: "Legal Aid" },
+    { path: "/activity", label: "Recent Activity" },
+    { path: "/blog", label: "Blog" },
+];
+
+/**
+ * -----------------------------------------------------------------------------
  * API Key Configuration
  * -----------------------------------------------------------------------------
  *

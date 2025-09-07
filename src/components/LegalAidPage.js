@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { fetchUrlContent } from '../services/apiService';
 
 const organisations = [
     { name: 'Delhi State Legal Services Authority', city: 'Delhi', address: 'Patiala House Courts Complex, New Delhi', phone: '011-2338 4781', services: 'Free legal aid, Lok Adalat, mediation' },
@@ -25,7 +26,7 @@ const LegalAidPage = () => {
     setModalOrg(org);
   };
 
-  const confirmContact = (org) => {
+  const confirmContact = async (org) => {
     const newRevealed = { ...revealed, [org.name]: true };
     setRevealed(newRevealed);
     localStorage.setItem('legalbridge_revealed', JSON.stringify(newRevealed));
@@ -33,6 +34,18 @@ const LegalAidPage = () => {
     const log = JSON.parse(localStorage.getItem('legalbridge_contact_log') || '[]');
     log.push({ org: org.name, timestamp: new Date().toISOString() });
     localStorage.setItem('legalbridge_contact_log', JSON.stringify(log));
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      await fetch('/api/legalaid/view', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ org })
+      });
+    } catch (_) {}
 
     setModalOrg(null);
   };

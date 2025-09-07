@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Ishant Sharma Sharma",
+      "email": "ishant8700@gmail.com",
+      "passwordHash": "$2a$10$iik68yj9xfq7LLL7FeEKwuHmboGGVcMedlj.BtrNoBlHl5hsaJg02"
+    },
+    {
+      "id": 2,
+      "name": "Ishant Sharma Sharma",
+      "email": "ishant87sadcv00@gmail.com",
+      "passwordHash": "$2a$10$9istLD.qwrXBJUgt/i4OXOHsI9rV69qGNFes8fe/V9WvKU4/HpG0."
+    },
+    {
+      "id": 3,
+      "name": "ishant shatm",
+      "email": "abhiabvp098@gmail.com",
+      "passwordHash": "$2a$10$49H7PpFYwMv0Pb8SHVjS5OYfV79gLiYfgTuhAG2PfQ7Cow8uHiF.a",
+      "phone": "8700627280",
+      "socials": {
+        "twitter": "",
+        "linkedin": "",
+        "github": ""
+      }
+    }
+  ],
+  "nextId": 4
+}

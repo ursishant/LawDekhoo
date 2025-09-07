@@ -8,8 +8,8 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en-IN");
-  const [fileContent, setFileContent] = useState(null);
-  const [fileName, setFileName] = useState("");
+  const [fileContents, setFileContents] = useState([]);
+  const [fileNames, setFileNames] = useState([]);
   const [processingStatus, setProcessingStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const [showUrlModal, setShowUrlModal] = useState(false);
@@ -92,16 +92,41 @@ const ChatPage = () => {
     const trimmedText = text.trim();
     if (!trimmedText && !isSummaryRequest) return;
     setLoading(true); setInput("");
+
+    const userMessage = { id: Date.now(), sender: "user", text: trimmedText };
+    const newMessages = [...messages, userMessage];
+
     if (!isSummaryRequest) {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "user", text: trimmedText }]);
+        setMessages(newMessages);
     } else {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✨ Summarizing ${fileName}...`, type: "notification" }]);
+        const summaryMessage = { id: Date.now(), sender: "system", text: `✨ Summarizing ${fileNames.join(', ')}...`, type: "notification" };
+        setMessages(prev => [...prev, summaryMessage]);
     }
-    let finalPrompt = `${LEGAL_ASSISTANT_PROMPT}\n\n---\nLanguage: ${supportedLanguages[selectedLanguage].name}.`;
-    if (isSummaryRequest && fileContent) {
-        finalPrompt += ` Please summarize the following document:\n\n**DOCUMENT:**\n\`\`\`\n${fileContent}\n\`\`\``;
+
+    const conversationHistory = newMessages.slice(-10).map(msg => `${msg.sender}: ${msg.text}`).join('\n');
+
+    let finalPrompt = `${LEGAL_ASSISTANT_PROMPT}\n\n---\nConversation History:\n${conversationHistory}\n\n---\nLanguage: ${supportedLanguages[selectedLanguage].name}.`;
+    if (isSummaryRequest && fileContents.length > 0) {
+        finalPrompt += ` Please summarize the following documents:\n\n`;
+        fileContents.forEach((content, index) => {
+            finalPrompt += `**DOCUMENT ${index + 1}: ${fileNames[index]}**\n\
+\
+${content}\n\
+\
+`;
+        });
     } else {
-        if (fileContent) finalPrompt += `\n\n**DOCUMENT CONTEXT:**\n\`\`\`\n${fileContent}\n\`\`\`\n\nAnswer the user's query based on the document:`;
+        if (fileContents.length > 0) {
+            finalPrompt += `\n\n**DOCUMENT CONTEXT:**\n`;
+            fileContents.forEach((content, index) => {
+                finalPrompt += `**DOCUMENT ${index + 1}: ${fileNames[index]}**\n\
+\
+${content}\n\
+\
+`;
+            });
+            finalPrompt += `Answer the user's query based on the document(s):`;
+        }
         finalPrompt += `\n\n**USER QUERY:**\n${trimmedText}`;
     }
     try {
@@ -115,7 +140,7 @@ const ChatPage = () => {
       const botMessage = { 
           id: Date.now(), 
           sender: "bot", 
-          text: isSummaryRequest ? `<b>Summary of ${fileName}:</b><br/><br/>` + formattedText : formattedText 
+          text: isSummaryRequest ? `<b>Summary of ${fileNames.join(', ')}:</b><br/><br/>` + formattedText : formattedText 
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
@@ -124,74 +149,106 @@ const ChatPage = () => {
       setLoading(false);
     }
   };
-  const handleClearDocument = () => {
-    setFileContent(null); setFileName("");
-    setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "Document context cleared.", type: "notification" }]);
+  const handleClearDocuments = () => {
+    setFileContents([]); setFileNames([]);
+    setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "All documents cleared.", type: "notification" }]);
   };
-  const processPdfFile = async (file) => {
+
+  const processPdfFiles = async (files) => {
       if (!window.pdfjsLib || !window.Tesseract) { 
           setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "⚠️ PDF processing libraries are not loaded. Please check your connection and refresh.", type: "notification" }]);
           return;
       }
       setLoading(true); setProgress(0);
-      const fileReader = new FileReader();
-      fileReader.readAsArrayBuffer(file);
-      fileReader.onload = async (event) => {
-          try {
-              const pdf = await window.pdfjsLib.getDocument(event.target.result).promise;
-              
-              // --- NEW: Page limit check ---
-              if (pdf.numPages > 120) {
-                  setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: "⚠️ Your PDF exceeds the page limit of 120. Please upload a smaller one.", type: "notification" }]);
-                  setLoading(false);
-                  return;
-              }
 
-              let fullText = '';
-              for (let i = 1; i <= pdf.numPages; i++) {
-                  const currentProgress = Math.round((i / pdf.numPages) * 100);
-                  setProgress(currentProgress);
-                  setProcessingStatus(`Processing page ${i}/${pdf.numPages}...`);
-                  const page = await pdf.getPage(i);
-                  const textContent = await page.getTextContent();
-                  const pageText = textContent.items.map(item => item.str).join(' ');
-                  if (pageText.trim().length > 50) {
-                      fullText += pageText + '\n\n';
-                  } else {
-                      setProcessingStatus(`Recognizing text on page ${i} (OCR)...`);
-                      const viewport = page.getViewport({ scale: 1.5 });
-                      const canvas = document.createElement('canvas');
-                      canvas.height = viewport.height; canvas.width = viewport.width;
-                      const context = canvas.getContext('2d');
-                      await page.render({ canvasContext: context, viewport: viewport }).promise;
-                      const { data: { text } } = await window.Tesseract.recognize(canvas, 'eng');
-                      fullText += text + '\n\n';
-                  }
-              }
-              setFileContent(fullText); setFileName(file.name); setProcessingStatus(""); setProgress(0);
-              setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✅ Processed ${file.name}. Ask a question about it.`, type: "notification" }]);
-          } catch (error) {
-              setProcessingStatus(`Error: ${error.message}`);
-          } finally { setLoading(false); }
-      };
+      let newFileContents = [];
+      let newFileNames = [];
+
+      for (let file of files) {
+        const fileReader = new FileReader();
+        fileReader.readAsArrayBuffer(file);
+        await new Promise((resolve, reject) => {
+            fileReader.onload = async (event) => {
+                try {
+                    const pdf = await window.pdfjsLib.getDocument(event.target.result).promise;
+                    
+                    if (pdf.numPages > 120) {
+                        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `⚠️ ${file.name} exceeds the page limit of 120.`, type: "notification" }]);
+                        reject(new Error("File exceeds page limit"));
+                        return;
+                    }
+
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const currentProgress = Math.round((i / pdf.numPages) * 100);
+                        setProgress(currentProgress);
+                        setProcessingStatus(`Processing ${file.name}: page ${i}/${pdf.numPages}...`);
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        if (pageText.trim().length > 50) {
+                            fullText += pageText + '\n\n';
+                        } else {
+                            setProcessingStatus(`Recognizing text on ${file.name}: page ${i} (OCR)...`);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            const canvas = document.createElement('canvas');
+                            canvas.height = viewport.height; canvas.width = viewport.width;
+                            const context = canvas.getContext('2d');
+                            await page.render({ canvasContext: context, viewport: viewport }).promise;
+                            const { data: { text } } = await window.Tesseract.recognize(canvas, 'eng');
+                            fullText += text + '\n\n';
+                        }
+                    }
+                    newFileContents.push(fullText);
+                    newFileNames.push(file.name);
+                    setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✅ Processed ${file.name}.`, type: "notification" }]);
+                    resolve();
+                } catch (error) {
+                    setProcessingStatus(`Error: ${error.message}`);
+                    reject(error);
+                }
+            };
+        });
+      }
+      setFileContents(prev => [...prev, ...newFileContents]);
+      setFileNames(prev => [...prev, ...newFileNames]);
+      setProcessingStatus(""); setProgress(0); setLoading(false);
   };
+
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (fileName) handleClearDocument();
-    if (file.type === "application/pdf" || file.type === "text/plain") {
-        if (file.type === "application/pdf") processPdfFile(file);
-        else {
+    const files = e.target.files;
+    if (!files.length) return;
+
+    const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf");
+    const textFiles = Array.from(files).filter(file => file.type === "text/plain");
+
+    if (pdfFiles.length > 0) {
+        processPdfFiles(pdfFiles);
+    }
+
+    if (textFiles.length > 0) {
+        let loadedFileNames = [];
+        let loadedFileContents = [];
+        textFiles.forEach(file => {
             const reader = new FileReader();
             reader.onload = (event) => {
-                setFileContent(event.target.result); setFileName(file.name);
-                setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `📎 Loaded ${file.name}.`, type: "notification" }]);
+                loadedFileContents.push(event.target.result);
+                loadedFileNames.push(file.name);
+                if (loadedFileContents.length === textFiles.length) {
+                    setFileContents(prev => [...prev, ...loadedFileContents]);
+                    setFileNames(prev => [...prev, ...loadedFileNames]);
+                    setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `📎 Loaded ${loadedFileNames.join(', ')}.`, type: "notification" }]);
+                }
             };
             reader.readAsText(file);
-        }
-    } else {
-        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `⚠️ Unsupported file type.`, type: "notification" }]);
+        });
     }
+
+    const unsupportedFiles = Array.from(files).filter(file => file.type !== "application/pdf" && file.type !== "text/plain");
+    if (unsupportedFiles.length > 0) {
+        setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `⚠️ ${unsupportedFiles.length} unsupported file(s).`, type: "notification" }]);
+    }
+
     e.target.value = null;
   };
   const handleUrlFetch = async (e) => {
@@ -200,7 +257,9 @@ const ChatPage = () => {
     setLoading(true); setProcessingStatus(`Fetching...`); setShowUrlModal(false);
     try {
         const textContent = await fetchUrlContent(urlInput);
-        setFileContent(textContent); setFileName(urlInput); setUrlInput("");
+        setFileContents(prev => [...prev, textContent]); 
+        setFileNames(prev => [...prev, urlInput]); 
+        setUrlInput("");
         setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `✅ Fetched content.`, type: "notification" }]);
     } catch (error) {
         setMessages(prev => [...prev, { id: Date.now(), sender: "system", text: `❌ Fetch failed: ${error.message}`, type: "notification" }]);
@@ -221,6 +280,11 @@ const ChatPage = () => {
   };
   const handleCopy = (textToCopy) => {
     navigator.clipboard.writeText(textToCopy).then(() => alert("Copied!")).catch(err => console.error(err));
+  };
+
+  const handleRemoveFile = (index) => {
+    setFileNames(prev => prev.filter((_, i) => i !== index));
+    setFileContents(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -269,7 +333,7 @@ const ChatPage = () => {
         </div>
         
         <div className="input-area">
-            {(fileName || processingStatus) && (
+            {(fileNames.length > 0 || processingStatus) && (
             <div className="file-context-area">
               {processingStatus ? (
                 <div className="processing-status-bar">
@@ -277,10 +341,15 @@ const ChatPage = () => {
                   <div className="progress-bar-container"><div className="progress-bar" style={{ width: `${progress}%` }}></div></div>
                 </div>
               ) : (
-                <div className="file-info">
-                  <i className="fas fa-file-alt"></i>
-                  <span>Ready to discuss: <strong>{fileName}</strong></span>
-                  <button onClick={handleClearDocument} className="clear-context-btn" title="Clear Document"><i className="fas fa-times"></i></button>
+                <div className="file-info-container">
+                    {fileNames.map((name, index) => (
+                        <div key={index} className="file-info">
+                            <i className="fas fa-file-alt"></i>
+                            <span><strong>{name}</strong></span>
+                            <button onClick={() => handleRemoveFile(index)} className="clear-context-btn" title="Remove File"><i className="fas fa-times"></i></button>
+                        </div>
+                    ))}
+                     <button onClick={handleClearDocuments} className="clear-all-btn" title="Clear All Documents"><i className="fas fa-trash"></i> Clear All</button>
                 </div>
               )}
             </div>
@@ -289,13 +358,13 @@ const ChatPage = () => {
           <form onSubmit={handleSubmit} className="input-form-wrapper">
             <div className="input-form">
               <button type="button" className="chat-action-btn icon-btn" onClick={() => fileInputRef.current.click()} disabled={loading}><i className="fas fa-paperclip"></i></button>
-              <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} accept=".txt,.pdf" />
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} accept=".txt,.pdf" multiple />
               <input type="text" className="input-field" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask a legal question or describe your issue..." disabled={loading} />
               <button type="submit" className="chat-action-btn send-btn" disabled={loading || !input.trim()}><i className="fas fa-arrow-up"></i></button>
             </div>
           </form>
 
-          {!fileName && (
+          {fileNames.length === 0 && (
             <div className="quick-questions-grid">
               {quickQuestions.map(({ text, prompt }) => (
                 <button key={text} disabled={loading} onClick={() => sendMessage(prompt)} className="quick-question-btn">

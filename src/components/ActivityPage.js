@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { fetchMe } from '../services/apiService';
 
 // --- Helper Components ---
 
@@ -42,6 +43,8 @@ const ActivityPage = () => {
   const [chats, setChats] = useState([]);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewContent, setPreviewContent] = useState({ title: '', content: '' });
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     // Load jspdf script for PDF downloads
@@ -55,6 +58,10 @@ const ActivityPage = () => {
     
     setDocuments(savedDocs.slice(-3).reverse());
     setChats(savedChats.filter(c => c.sender === 'user').slice(-3).reverse());
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      fetchMe(token).then(d => setUser(d.user)).catch(() => setAuthError(''));
+    }
   }, []);
 
   const handlePreview = (doc) => {
@@ -121,6 +128,23 @@ const ActivityPage = () => {
           <Link to="/documents" className="btn btn-secondary dark"><i className="fas fa-file-alt"></i> Generate Document</Link>
         </div>
       </header>
+
+      {user && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div className="avatar" style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary-color)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+              {user.name?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{user.name}</div>
+              <div style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>{user.email}</div>
+            </div>
+            <div style={{ marginLeft: 'auto' }}>
+              <Link to="/profile" className="btn btn-secondary">View Profile</Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="stats-grid">
         <StatCard icon="fa-comments" value={chats.length} label="Recent Chats" />
