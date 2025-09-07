@@ -26,7 +26,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "prebuild": "echo Skipping chmod step (not needed on Windows)",
+    "prebuild": "echo 'Skipping chmod step (not needed on Windows)'",
     "client": "webpack serve --mode development --open",
     "server": "nodemon server.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
