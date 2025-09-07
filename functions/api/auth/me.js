@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken-edge';
+import jwt from 'jsonwebtoken';
 
 export async function onRequestGet(context) {
   const { env, request } = context;
